@@ -49,20 +49,26 @@ fun App() {
         HummingSDUI().Content(
             HummingSDUI.Config(
                 type = "file",
-                destiny = "files/navigation/app-navigation.json",
+                properties = mutableMapOf("destiny" to "files/navigation/app-navigation.json"),
                 theme = Material3Theme(),
                 placeholder = {
                     ShimmerEffect(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(20.dp))
+                            .background(
+                                Color.Black.copy(alpha = 0.5f),
+                                RoundedCornerShape(20.dp)
+                            )
                     )
                 },
                 loadingHandler = {
                     ShimmerEffect(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(20.dp))
+                            .background(
+                                Color.Black.copy(alpha = 0.5f),
+                                RoundedCornerShape(20.dp)
+                            )
                     )
                 },
                 errorHandler = { error, viewModel ->
@@ -70,8 +76,11 @@ fun App() {
                         modifier = Modifier,
                         onDismissRequest = { viewModel.dismissError() },
                         title = { Text(text = "Humming ERROR") },
-                        text = { Text(text = error.message
-                        ) },
+                        text = {
+                            Text(
+                                text = error.message
+                            )
+                        },
                         confirmButton = {
                             TextButton(onClick = { viewModel.dismissError() }) {
                                 Text("OK")
@@ -80,22 +89,26 @@ fun App() {
                     )
                 },
             ) {
-                // You can add custom components here
+                // You can add custom providers and libraries here
                 // Example of a custom node provider that fetches JSON from a URL
-                addNodeProvider("url") { res ->
+                addNodeProvider("url") { properties ->
                     delay(2000)
                     val client = HttpClient()
-                    val response = client.get(res)
+                    val response = client.get(properties["destiny"] ?: error("URL not provided"))
                     val json = response.bodyAsText()
                     return@addNodeProvider Json.decodeFromString<JsonObject>(json).toNode()
                 }
-                addNodeProvider("file") { res ->
+                // Example of a custom node provider that reads JSON from a local file resource
+                addNodeProvider("file") { properties ->
                     delay(1000)
-                    val bytes = Res.readBytes(res)
+                    val bytes = Res.readBytes(properties["destiny"] ?: error("Resource not provided"))
                     val json = bytes.decodeToString()
                     return@addNodeProvider Json.decodeFromString<JsonObject>(json).toNode()
                 }
                 // You can add custom libraries here
+//                addLibrary(SDLibrary("layout") {})
+//                addLibrary(SDLibrary("container") {})
+//                addLibrary(SDLibrary("widget") {})
                 addLibrary(SDActions().apply {
                     registerMethod("getAppPlatform") { node, vm ->
                         val state = node.property("state") ?: "platformName"
@@ -104,9 +117,6 @@ fun App() {
                 })
                 addLibrary(SDLayoutMaterial3())
                 addLibrary(SDNavigation())
-//                addLibrary(SDLibrary("layout") {})
-//                addLibrary(SDLibrary("container") {})
-//                addLibrary(SDLibrary("widget") {})
                 viewModel = this
             }
         )

@@ -1,7 +1,6 @@
 package me.developes.humming.sdui.common
 
 import androidx.compose.runtime.mutableStateMapOf
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CoroutineScope
@@ -13,7 +12,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class SDUIFormViewModel(
-    private val handle: SavedStateHandle, libraries: List<SDLibrary> = listOf()
+    libraries: List<SDLibrary> = listOf()
 ) : ViewModel() {
     private val _runningTasks = MutableStateFlow(0)
     val isLoading = MutableStateFlow(_runningTasks.value > 0).also { flow ->
@@ -367,13 +366,13 @@ class SDUIFormViewModel(
      * @param destiny The destiny parameter used by the NodeProvider to determine the specific layout or configuration.
      * @return The corresponding ComposableContent component if successfully loaded, or `null` if not found or an error occurred.
      */
-    suspend fun loadComponent(nodeType: String, destiny: String): ComposableContent? {
+    suspend fun loadComponent(nodeType: String, properties: MutableMap<String, String?>): ComposableContent? {
         _runningTasks.value++
         return try {
-            loadNodeTypeProvider(nodeType)?.invoke(destiny)?.let {
+            loadNodeTypeProvider(nodeType)?.invoke(properties)?.let {
                 loadComponent(it)
             } ?: run {
-                logging.error("Node Type Provider not found for type: $nodeType and layout: $destiny")
+                logging.error("Node Type Provider not found for type: $nodeType and layout: $properties")
                 setError(ErrorData.missingProvider(nodeType))
                 null
             }

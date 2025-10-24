@@ -1,0 +1,186 @@
+name: Release & Publish
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version without leading v (e.g. 1.2.3)'
+        required: true
+        type: string
+
+jobs:
+  build-publish-maven:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Determine version
+        id: ver
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            VER="${GITHUB_REF#refs/tags/v}"
+          else
+            VER="${{ inputs.version }}"
+          fi
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          echo "Release version: $VER"
+      - name: Validate gradle.properties version matches
+        run: |
+          FILE_VER=$(grep '^hummingVersion=' gradle.properties | cut -d'=' -f2)
+          if [ "$FILE_VER" != "${{ steps.ver.outputs.version }}" ]; then
+            echo "gradle.properties hummingVersion ($FILE_VER) does not match release version (${{ steps.ver.outputs.version }})" >&2
+            exit 1
+          fi
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+      - name: Publish to Maven Central
+        run: ./gradlew publish --no-daemon --stacktrace
+        env:
+          ORG_GRADLE_PROJECT_signingKey: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
+          ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
+          ORG_GRADLE_PROJECT_ossrhUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_ossrhPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+
+  build-xcframeworks:
+    needs: build-publish-maven
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+            fetch-depth: 0
+      - name: Determine version
+        id: ver
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            VER="${GITHUB_REF#refs/tags/v}"
+          else
+            VER="${{ inputs.version }}"
+          fi
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      - name: Build all XCFrameworks
+        run: ./gradlew packageAllXCFrameworks --no-daemon --stacktrace
+      - name: Upload XCFramework zips as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcframework-zips
+          path: build/xcframeworks/*.xcframework.zip
+      - name: Upload checksums as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcframework-checksums
+          path: build/xcframeworks/checksums.txt
+
+  update-package-swift:
+    needs: build-xcframeworks
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Download XCFramework zips
+        uses: actions/download-artifact@v4
+        with:
+          name: xcframework-zips
+          path: build/xcframeworks
+      - name: Download checksums
+        uses: actions/download-artifact@v4
+        with:
+          name: xcframework-checksums
+          path: build/xcframeworks
+      - name: Determine version
+        id: ver
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            VER="${GITHUB_REF#refs/tags/v}"
+          else
+            VER="${{ inputs.version }}"
+          fi
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+      - name: Update Package.swift
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.ver.outputs.version }}"
+          declare -A checksums
+          while IFS== read -r name sum; do
+            case "$name" in
+              HummingCore.xcframework.zip) checksums[HUMMING_CORE_CHECKSUM]="$sum";;
+              HummingActions.xcframework.zip) checksums[HUMMING_ACTIONS_CHECKSUM]="$sum";;
+              HummingNavigation.xcframework.zip) checksums[HUMMING_NAVIGATION_CHECKSUM]="$sum";;
+              HummingLayoutMaterial3.xcframework.zip) checksums[HUMMING_LAYOUT_MATERIAL3_CHECKSUM]="$sum";;
+            esac
+          done < build/xcframeworks/checksums.txt
+          perl -pi -e "s/\$\{VERSION\}/$VERSION/g" Package.swift
+          for key in "${!checksums[@]}"; do
+            perl -pi -e "s/\$\{$key\}/${checksums[$key]}/g" Package.swift
+          done
+          echo "Updated Package.swift:"; grep checksum Package.swift || true
+      - name: Commit and push Package.swift if changed
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add Package.swift
+          if git diff --cached --quiet; then
+            echo "No changes to commit."; exit 0; fi
+          TAG_REF="${GITHUB_REF#refs/tags/}"
+          if [[ "${GITHUB_REF}" != refs/tags/* ]]; then
+            TAG_REF="v${{ steps.ver.outputs.version }}"
+          fi
+          git commit -m "Update Package.swift for $TAG_REF"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  github-release:
+    needs: [build-xcframeworks, update-package-swift]
+    runs-on: macos-latest
+    steps:
+      - name: Download XCFramework zips
+        uses: actions/download-artifact@v4
+        with:
+          name: xcframework-zips
+          path: xcframeworks
+      - name: Determine version
+        id: ver
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            VER="${GITHUB_REF#refs/tags/v}"
+            TAG="v$VER"
+          else
+            VER="${{ inputs.version }}"
+            TAG="v$VER"
+          fi
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: Release ${{ steps.ver.outputs.tag }}
+          body: |
+            Automated release for ${{ steps.ver.outputs.tag }}
+          files: xcframeworks/*.xcframework.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

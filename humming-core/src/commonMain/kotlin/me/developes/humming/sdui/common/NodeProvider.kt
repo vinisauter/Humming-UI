@@ -1,3 +1,3 @@
 package me.developes.humming.sdui.common
 
-typealias NodeProvider = suspend (String) -> ServerDrivenNode
+typealias NodeProvider = suspend (MutableMap<String, String?>) -> ServerDrivenNode

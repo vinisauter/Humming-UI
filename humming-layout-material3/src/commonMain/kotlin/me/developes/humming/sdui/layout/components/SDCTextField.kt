@@ -28,6 +28,7 @@ import compose.icons.feathericons.Eye
 import compose.icons.feathericons.EyeOff
 import me.developes.humming.sdui.common.SDUIFormViewModel
 import me.developes.humming.sdui.common.ServerDrivenNode
+import me.developes.humming.sdui.common.fromNode
 import me.developes.humming.sdui.common.toColor
 import me.developes.humming.sdui.layout.Layout
 import kotlin.math.absoluteValue

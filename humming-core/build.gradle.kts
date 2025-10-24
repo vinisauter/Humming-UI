@@ -1,3 +1,4 @@
+import android.databinding.tool.ext.toCamelCase
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
 
 plugins {
@@ -10,38 +11,35 @@ plugins {
 }
 
 kotlin {
-//    jvmToolchain(11)
-
     androidTarget { publishLibraryVariants("release") }
     jvm()
-//    linuxX64()
-//    mingwX64()
     js { browser() }
     wasmJs { browser() }
 
-    val xcframeworkName = "HummingUI-Core"
-    val xcf = XCFramework(xcframeworkName)
-    listOf(
-        iosX64(),
-        iosArm64(),
-        iosSimulatorArm64(),
-        macosX64(),
-        macosArm64(),
-    ).forEach {
+    val xcFrameworkName = project.name.replace('-', '_').toCamelCase()
+    val xcf = XCFramework(xcFrameworkName)
+    listOf(iosX64(), iosArm64(), iosSimulatorArm64()).forEach {
         it.binaries.framework {
-            baseName = xcframeworkName
-            binaryOption("bundleId", "me.developes.humming.sdui.${xcframeworkName}")
+            baseName = xcFrameworkName
+            binaryOption("bundleId", "me.developes.humming.sdui.${xcFrameworkName}")
             xcf.add(this)
-            isStatic = true
+            isStatic = false
         }
     }
-
+    targets.withType<org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget> {
+        compilations["main"].compileTaskProvider.configure {
+            compilerOptions {
+                freeCompilerArgs.add(
+                    "-Xexport-kdoc"
+                )
+            }
+        }
+    }
     sourceSets {
         commonMain.dependencies {
             implementation(compose.runtime)
             implementation(compose.ui)
             implementation(compose.foundation)
-
             implementation(libs.navigation.compose)
             implementation(libs.lifecycle.viewmodel.compose)
             implementation(libs.kotlinx.coroutines.core)
@@ -65,16 +63,6 @@ kotlin {
             implementation(libs.kotlinx.coroutines.swing)
         }
     }
-
-    //https://kotlinlang.org/docs/native-objc-interop.html#export-of-kdoc-comments-to-generated-objective-c-headers
-    targets.withType<org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget> {
-        compilations["main"].compileTaskProvider.configure {
-            compilerOptions {
-                freeCompilerArgs.add("-Xexport-kdoc")
-            }
-        }
-    }
-
 }
 
 android {
@@ -84,37 +72,4 @@ android {
     defaultConfig {
         minSdk = 21
     }
-}
-
-//Publishing your Kotlin Multiplatform library to Maven Central
-//https://www.jetbrains.com/help/kotlin-multiplatform-dev/multiplatform-publish-libraries.html
-mavenPublishing {
-    publishToMavenCentral()
-    coordinates("me.developes.humming.sdui", "humming-core", "1.0.0")
-
-    pom {
-        name = "HummingUI"
-        description = "Kotlin Multiplatform library"
-        url = "github url" //todo
-
-        licenses {
-            license {
-                name = "MIT"
-                url = "https://opensource.org/licenses/MIT"
-            }
-        }
-
-        developers {
-            developer {
-                id = "" //todo
-                name = "" //todo
-                email = "" //todo
-            }
-        }
-
-        scm {
-            url = "github url" //todo
-        }
-    }
-    if (project.hasProperty("signing.keyId")) signAllPublications()
 }

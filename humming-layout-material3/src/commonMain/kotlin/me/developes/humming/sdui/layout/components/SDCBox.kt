@@ -6,6 +6,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import me.developes.humming.sdui.common.SDUIFormViewModel
 import me.developes.humming.sdui.common.ServerDrivenNode
+import me.developes.humming.sdui.common.fromNode
 import me.developes.humming.sdui.layout.Layout
 
 class SDCBox(val node: ServerDrivenNode, private val viewModel: SDUIFormViewModel) : Layout {

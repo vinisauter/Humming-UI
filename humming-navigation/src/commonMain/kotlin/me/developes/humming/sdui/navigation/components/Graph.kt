@@ -39,7 +39,7 @@ class Graph(
             val graphRouteNode = graphRoutes[routeName]!!
             val nodeType = graphRouteNode.property("type")!!
             val destiny = graphRouteNode.property("destiny")!!
-            val componentNode = viewModel.loadNodeTypeProvider(nodeType)!!.invoke(destiny)
+            val componentNode = viewModel.loadNodeTypeProvider(nodeType)!!.invoke(hashMapOf("destiny" to destiny))
             componentNodes[routeName] = componentNode
             componentNode
         }
