@@ -6,6 +6,8 @@
 
 Kotlin Multiplatform UI library with navigation/actions/material layout helpers and a prebuilt Apple XCFramework for Swift integration.
 
+> Learn more about the concepts and motivations of Humming-UI in the article [Server Driven UI: Flexibility and performance with declarative UI](https://medium.com/@vinicius.sauter/server-driven-ui-flexibilidade-e-performance-com-ui-declarativa-a556496acf92), published on Medium. The text explores how the server-driven model and the declarative approach provide flexibility and performance in building cross-platform interfaces, highlighting the integration between Kotlin Multiplatform and Swift. Reading it is recommended to understand the fundamentals and benefits of the library.
+
 ## Modules
 | Module (Gradle) | Swift Product (SPM) | Description |
 |-----------------|---------------------|-------------|
